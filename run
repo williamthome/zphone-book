@@ -1,0 +1,52 @@
+#!/bin/sh
+
+echo "---------------------------------------------------------------
+> Hot code reload will be enabled.
+
+* Required:
+- inotify-tools $ sudo apt-get install -y inotify-tools
+- xdotool $ sudo apt-get install xdotool
+
+! Important:
+- The command refreshes the active tab at the browser
+- Default browser is defined as Firefox.
+- Change to chrome passing chrome arg $ ./run chrome
+---------------------------------------------------------------"
+
+# Multiple folders can be watched
+# e.g. WatchDir="lib templates"
+WatchDir="."
+
+# xdotoll Browser class list:
+#   - chrome: Google-chrome
+#   - firefox: Navigator
+# See more at:
+#   - https://askubuntu.com/questions/1060170/xdotool-what-are-class-and-classname-for-a-window
+#   - https://stackoverflow.com/a/47704119/14166584
+case $1 in
+  chrome)
+    BrowserClass="Google-chrome"
+  ;;
+  *)
+    BrowserClass="Navigator"
+  ;;
+esac
+
+echo "Browser class name defined as $BrowserClass"
+echo "Waiting for file changes at dir $WatchDir"
+
+# inotifywait requires inotify-tools
+# See more at https://unix.stackexchange.com/questions/323901/how-to-use-inotifywait-to-watch-a-directory-for-creation-of-files-of-a-specific/606213#606213
+inotifywait \
+"$WatchDir" \
+-qrm \
+-e close_write \
+--format '%f %w' \
+--include "(dispatch|(.*?)\.(tpl|erl|hrl|css|js|png)$)" \
+| while read -r file dir; do
+  echo "File $file from dir $dir changed"
+
+  CurrentWindowId="$(xdotool getactivewindow)"
+  xdotool search --onlyvisible --classname "$BrowserClass" windowactivate --sync key F5
+  xdotool windowactivate "$CurrentWindowId"
+done
